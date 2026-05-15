@@ -21,6 +21,12 @@ env/
 # Environment
 .env
 
+# Logs
+logs/
+
+# Claude
+.claude/
+
 # Data (user-specific, not for version control)
 data/profile/
 data/resumes/
