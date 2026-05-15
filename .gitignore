@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+
+# Data (user-specific, not for version control)
+data/profile/
+data/resumes/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Fonts (large binary files)
+src/iresume/pdf/static/fonts/*.otf
+src/iresume/pdf/static/fonts/*.ttf
