@@ -32,6 +32,14 @@ class TaskResponse(BaseModel):
 async def generate_resume(request: GenerateRequest):
     logger.info(f"[API] 开始生成简历（异步），JD长度: {len(request.jd_text)}, 模板: {request.template}")
     task_id = await task_manager.create_task()
+    # 立即创建历史记录，状态为 running
+    history_repo = get_history_repo()
+    history_repo.add_record(
+        task_id=task_id,
+        jd_text=request.jd_text,
+        status="running",
+        template=request.template,
+    )
     asyncio.create_task(
         run_resume_generation(
             task_id=task_id,

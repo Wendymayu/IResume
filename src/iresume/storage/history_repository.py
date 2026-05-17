@@ -123,6 +123,45 @@ class HistoryRepository:
             d["file_exists"] = filepath.exists()
         return d
 
+    def update_record(
+        self,
+        task_id: str,
+        status: str | None = None,
+        elapsed_ms: int | None = None,
+        resume_id: str | None = None,
+        gap_report: dict | None = None,
+        error: str | None = None,
+    ) -> bool:
+        with self._get_conn() as conn:
+            parts = []
+            values: list[Any] = []
+            if status is not None:
+                parts.append("status = ?")
+                values.append(status)
+                if status in ("completed", "failed", "not_viable"):
+                    parts.append("completed_at = ?")
+                    values.append(datetime.now(timezone.utc).isoformat())
+            if elapsed_ms is not None:
+                parts.append("elapsed_ms = ?")
+                values.append(elapsed_ms)
+            if resume_id is not None:
+                parts.append("resume_id = ?")
+                values.append(resume_id)
+            if gap_report is not None:
+                parts.append("gap_report = ?")
+                values.append(json.dumps(gap_report, ensure_ascii=False))
+            if error is not None:
+                parts.append("error = ?")
+                values.append(error)
+            if not parts:
+                return False
+            values.append(task_id)
+            cur = conn.execute(
+                f"UPDATE generation_history SET {', '.join(parts)} WHERE task_id = ?",
+                values,
+            )
+            return cur.rowcount > 0
+
     def delete_record(self, task_id: str) -> bool:
         with self._get_conn() as conn:
             cur = conn.execute(

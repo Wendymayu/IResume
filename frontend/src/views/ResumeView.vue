@@ -23,20 +23,6 @@
       </button>
     </div>
 
-    <!-- Progress bar -->
-    <div v-if="generating" class="mb-6 p-4 bg-white border rounded-lg">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm text-gray-600">{{ progress }}</span>
-        <span class="text-sm font-medium text-indigo-600">{{ progressPct }}%</span>
-      </div>
-      <div class="w-full bg-gray-200 rounded-full h-2">
-        <div
-          class="bg-indigo-600 h-2 rounded-full transition-all duration-500"
-          :style="{ width: progressPct + '%' }"
-        />
-      </div>
-    </div>
-
     <!-- Error -->
     <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
       {{ error }}
@@ -119,6 +105,20 @@
           <div class="flex items-center gap-4 text-xs text-gray-500 mb-2">
             <span>{{ formatDate(record.created_at) }}</span>
             <span v-if="record.elapsed_ms != null">耗时 {{ formatElapsed(record.elapsed_ms) }}</span>
+          </div>
+
+          <!-- Progress bar for running tasks -->
+          <div v-if="record.status === 'running'" class="mb-2">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs text-blue-600">{{ record.task_id === taskId ? progress : '生成中...' }}</span>
+              <span v-if="record.task_id === taskId" class="text-xs font-medium text-blue-600">{{ progressPct }}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-1.5">
+              <div
+                class="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
+                :style="{ width: (record.task_id === taskId ? progressPct : 0) + '%' }"
+              />
+            </div>
           </div>
 
           <div class="flex items-center gap-3">
@@ -241,6 +241,7 @@ async function generate() {
     const { data } = await generateResumeTask(jdText.value)
     taskId.value = data.task_id
     console.log('[ResumeView] 任务已创建，taskId:', taskId.value)
+    await loadHistory()
     await pollTask()
   } catch (e: any) {
     generating.value = false
@@ -280,6 +281,7 @@ function statusClass(status: string): string {
   switch (status) {
     case 'completed': return 'bg-green-100 text-green-700'
     case 'not_viable': return 'bg-yellow-100 text-yellow-700'
+    case 'running': return 'bg-blue-100 text-blue-700'
     case 'failed': return 'bg-red-100 text-red-700'
     default: return 'bg-gray-100 text-gray-700'
   }
@@ -289,6 +291,7 @@ function statusLabel(status: string): string {
   switch (status) {
     case 'completed': return '已完成'
     case 'not_viable': return '匹配度低'
+    case 'running': return '生成中'
     case 'failed': return '失败'
     default: return status
   }

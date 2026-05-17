@@ -89,11 +89,9 @@ async def run_resume_generation(
                 result={"gap_report": gap_report},
                 completed_at=datetime.now(timezone.utc),
             )
-            history_repo.add_record(
+            history_repo.update_record(
                 task_id=task_id,
-                jd_text=jd_text,
                 status="not_viable",
-                template=template_name,
                 elapsed_ms=elapsed_ms,
                 gap_report=gap_report,
             )
@@ -119,11 +117,9 @@ async def run_resume_generation(
         )
         logger.info(f"[runner] task={task_id} 完成, resume_id={resume_id}")
 
-        history_repo.add_record(
+        history_repo.update_record(
             task_id=task_id,
-            jd_text=jd_text,
             status="completed",
-            template=template_name,
             elapsed_ms=elapsed_ms,
             resume_id=resume_id,
             gap_report=gap_report,
@@ -133,11 +129,9 @@ async def run_resume_generation(
         logger.exception(f"[runner] task={task_id} 异常: {type(e).__name__}: {e}")
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
         await _update(task_id, TaskStatus.FAILED, "生成失败", 0, error=str(e))
-        history_repo.add_record(
+        history_repo.update_record(
             task_id=task_id,
-            jd_text=jd_text,
             status="failed",
-            template=template_name,
             elapsed_ms=elapsed_ms,
             error=str(e),
         )
