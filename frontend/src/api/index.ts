@@ -7,6 +7,14 @@ const api = axios.create({
 
 // Profile
 export const getProfile = () => api.get('/profile')
+export const getPersonalInfo = () => api.get('/profile/personal-info')
+export const updatePersonalInfo = (info: {
+  name?: string
+  age?: number | null
+  email?: string
+  phone?: string
+  desired_position?: string
+}) => api.put('/profile/personal-info', info)
 export const updateEducation = (content: string) => api.put('/profile/education', { content })
 export const updateExperience = (content: string) => api.put('/profile/experience', { content })
 export const updateSkills = (content: string) => api.put('/profile/skills', { content })

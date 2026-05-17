@@ -4,7 +4,7 @@
 
     <div class="space-y-6">
       <!-- Tabs -->
-      <div class="flex gap-2">
+      <div class="flex gap-2 flex-wrap">
         <button
           v-for="tab in tabs"
           :key="tab.key"
@@ -20,8 +20,56 @@
         </button>
       </div>
 
-      <!-- Editor -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Personal Info Form -->
+      <div v-if="activeTab === 'personal'" class="max-w-2xl bg-white border rounded-lg p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">姓名</label>
+            <input
+              v-model="personalInfo.name"
+              class="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="请输入姓名"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">年龄</label>
+            <input
+              v-model.number="personalInfo.age"
+              type="number"
+              class="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="请输入年龄"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
+            <input
+              v-model="personalInfo.email"
+              type="email"
+              class="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="请输入邮箱"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">电话</label>
+            <input
+              v-model="personalInfo.phone"
+              class="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="请输入电话"
+            />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">期望职位</label>
+            <input
+              v-model="personalInfo.desired_position"
+              class="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="请输入期望职位"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Markdown Editor (non-personal tabs) -->
+      <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Markdown 编辑</label>
           <textarea
@@ -54,21 +102,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { marked } from 'marked'
-import { getProfile, updateEducation, updateExperience, updateSkills } from '../api'
+import { getProfile, updatePersonalInfo, updateEducation, updateExperience, updateSkills } from '../api'
 
 const tabs = [
+  { key: 'personal', label: '个人信息' },
   { key: 'education', label: '教育经历' },
   { key: 'experience', label: '工作经历' },
   { key: 'skills', label: '技能' },
 ]
 
-const activeTab = ref('education')
+const activeTab = ref('personal')
 const education = ref('')
 const experience = ref('')
 const skills = ref('')
 const saving = ref(false)
+const personalInfo = reactive({
+  name: '',
+  age: null as number | null,
+  email: '',
+  phone: '',
+  desired_position: '',
+})
 
 const editContent = computed({
   get() {
@@ -93,6 +149,13 @@ async function loadProfile() {
     education.value = data.education || ''
     experience.value = data.experience || ''
     skills.value = data.skills || ''
+    if (data.personal_info) {
+      personalInfo.name = data.personal_info.name || ''
+      personalInfo.age = data.personal_info.age ?? null
+      personalInfo.email = data.personal_info.email || ''
+      personalInfo.phone = data.personal_info.phone || ''
+      personalInfo.desired_position = data.personal_info.desired_position || ''
+    }
   } catch (e) {
     console.error('Failed to load profile', e)
   }
@@ -101,9 +164,19 @@ async function loadProfile() {
 async function save() {
   saving.value = true
   try {
-    await updateEducation(education.value)
-    await updateExperience(experience.value)
-    await updateSkills(skills.value)
+    if (activeTab.value === 'personal') {
+      await updatePersonalInfo({
+        name: personalInfo.name,
+        age: personalInfo.age,
+        email: personalInfo.email,
+        phone: personalInfo.phone,
+        desired_position: personalInfo.desired_position,
+      })
+    } else {
+      await updateEducation(education.value)
+      await updateExperience(experience.value)
+      await updateSkills(skills.value)
+    }
   } catch (e) {
     console.error('Failed to save profile', e)
   } finally {

@@ -1,8 +1,10 @@
+import json
 from pathlib import Path
 
 from iresume.models.profile import (
     Education,
     ExperienceHighlight,
+    PersonalInfo,
     SkillCategory,
     SkillItem,
     UserProfile,
@@ -16,6 +18,22 @@ class ProfileRepository:
     def load_raw(self) -> str:
         """Load all profile markdown as a single raw text block."""
         parts = []
+        # Personal info first
+        info = self.read_personal_info()
+        if any([info.name, info.email, info.phone, info.desired_position]):
+            lines = ["## 个人信息\n"]
+            if info.name:
+                lines.append(f"- 姓名: {info.name}")
+            if info.age is not None:
+                lines.append(f"- 年龄: {info.age}")
+            if info.email:
+                lines.append(f"- 邮箱: {info.email}")
+            if info.phone:
+                lines.append(f"- 电话: {info.phone}")
+            if info.desired_position:
+                lines.append(f"- 期望职位: {info.desired_position}")
+            parts.append("\n".join(lines))
+
         for filename in ["education.md", "experience.md", "skills.md"]:
             path = self.profile_dir / filename
             if path.exists():
@@ -33,6 +51,23 @@ class ProfileRepository:
     def write_raw(self, filename: str, content: str) -> None:
         self.profile_dir.mkdir(parents=True, exist_ok=True)
         (self.profile_dir / filename).write_text(content, encoding="utf-8")
+
+    # ── Personal info ──
+
+    def read_personal_info(self) -> PersonalInfo:
+        path = self.profile_dir / "personal_info.json"
+        if not path.exists():
+            return PersonalInfo()
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return PersonalInfo(**data)
+
+    def write_personal_info(self, info: PersonalInfo) -> None:
+        self.profile_dir.mkdir(parents=True, exist_ok=True)
+        data = info.model_dump(exclude_none=True)
+        (self.profile_dir / "personal_info.json").write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     # ── Education ──
     # Format: Free-form text blocks separated by blank lines.

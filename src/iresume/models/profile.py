@@ -1,6 +1,14 @@
 from pydantic import BaseModel
 
 
+class PersonalInfo(BaseModel):
+    name: str = ""
+    age: int | None = None
+    email: str = ""
+    phone: str = ""
+    desired_position: str = ""
+
+
 class Education(BaseModel):
     school: str
     degree: str
