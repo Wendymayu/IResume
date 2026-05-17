@@ -5,11 +5,12 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from iresume.agent.graph import build_resume_graph
+from iresume.api.deps import get_history_repo
 from iresume.config import settings
 from iresume.services.resume_runner import run_resume_generation
 from iresume.services.task_manager import task_manager
@@ -72,7 +73,39 @@ async def generate_resume_stream(request: GenerateRequest):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-# --- Resume lookup & download (unchanged) ---
+# --- History endpoints ---
+
+
+@router.get("/history/list")
+async def list_history(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    repo = get_history_repo()
+    records = repo.list_records(limit=limit, offset=offset)
+    total = repo.count()
+    return {"records": records, "total": total}
+
+
+@router.get("/history/{task_id}")
+async def get_history_detail(task_id: str):
+    repo = get_history_repo()
+    record = repo.get_record(task_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return record
+
+
+@router.delete("/history/{task_id}")
+async def delete_history_record(task_id: str):
+    repo = get_history_repo()
+    deleted = repo.delete_record(task_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return {"ok": True}
+
+
+# --- Resume lookup & download ---
 
 
 @router.get("/{resume_id}")

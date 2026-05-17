@@ -77,13 +77,88 @@
         v-html="renderedResume"
       />
     </div>
+
+    <!-- History -->
+    <div class="mt-10">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-800">历史记录</h3>
+        <button
+          @click="loadHistory"
+          class="text-sm text-indigo-600 hover:underline"
+        >
+          刷新
+        </button>
+      </div>
+
+      <div v-if="historyLoading" class="text-sm text-gray-500 py-4">加载中...</div>
+
+      <div v-else-if="historyRecords.length === 0" class="text-sm text-gray-500 py-4 bg-gray-50 border rounded-lg p-6 text-center">
+        暂无生成记录
+      </div>
+
+      <div v-else class="space-y-3">
+        <div
+          v-for="record in historyRecords"
+          :key="record.task_id"
+          class="p-4 bg-white border rounded-lg hover:shadow-sm transition-shadow"
+        >
+          <div class="flex items-start justify-between mb-2">
+            <div class="flex-1 min-w-0 mr-4">
+              <p class="text-sm text-gray-800 font-medium truncate" :title="record.jd_text">
+                {{ record.jd_text.slice(0, 120) }}{{ record.jd_text.length > 120 ? '...' : '' }}
+              </p>
+            </div>
+            <span
+              class="shrink-0 px-2 py-0.5 text-xs rounded-full font-medium"
+              :class="statusClass(record.status)"
+            >
+              {{ statusLabel(record.status) }}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-4 text-xs text-gray-500 mb-2">
+            <span>{{ formatDate(record.created_at) }}</span>
+            <span v-if="record.elapsed_ms != null">耗时 {{ formatElapsed(record.elapsed_ms) }}</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <a
+              v-if="record.resume_id && record.file_exists"
+              :href="`/api/resume/${record.resume_id}/download`"
+              class="text-xs text-indigo-600 hover:underline"
+              download
+            >
+              下载简历
+            </a>
+            <span v-else-if="record.status === 'not_viable'" class="text-xs text-gray-400">
+              未生成简历
+            </span>
+            <span v-else-if="record.status === 'failed'" class="text-xs text-gray-400">
+              {{ record.error || '生成失败' }}
+            </span>
+            <button
+              @click="deleteRecord(record.task_id)"
+              class="text-xs text-red-400 hover:text-red-600 ml-auto"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { marked } from 'marked'
-import { generateResumeTask, getTaskStatus, downloadResume } from '../api'
+import {
+  generateResumeTask,
+  getTaskStatus,
+  downloadResume,
+  getHistoryList,
+  deleteHistoryRecord,
+} from '../api'
 
 const jdText = ref('')
 const generating = ref(false)
@@ -97,6 +172,10 @@ const taskId = ref('')
 const progress = ref('')
 const progressPct = ref(0)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+// History state
+const historyRecords = ref<any[]>([])
+const historyLoading = ref(false)
 
 const renderedResume = computed(() => marked(resumeMarkdown.value))
 const downloadUrl = computed(() => resumeId.value ? downloadResume(resumeId.value) : '')
@@ -123,11 +202,13 @@ async function pollTask() {
       resumeMarkdown.value = result.resume_markdown || ''
       resumeId.value = result.resume_id || ''
       console.log('[ResumeView] 任务完成，简历ID:', resumeId.value)
+      await loadHistory()
     } else if (data.status === 'failed') {
       stopPolling()
       generating.value = false
       error.value = data.error || '生成失败，请稍后重试'
       console.error('[ResumeView] 任务失败:', data.error)
+      await loadHistory()
     } else {
       // Still running — poll again after 2s
       pollTimer = setTimeout(pollTask, 2000)
@@ -173,6 +254,64 @@ async function generate() {
     }
   }
 }
+
+async function loadHistory() {
+  historyLoading.value = true
+  try {
+    const { data } = await getHistoryList()
+    historyRecords.value = data.records
+  } catch (e: any) {
+    console.error('[ResumeView] 加载历史记录失败:', e)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function deleteRecord(taskId: string) {
+  try {
+    await deleteHistoryRecord(taskId)
+    historyRecords.value = historyRecords.value.filter((r: any) => r.task_id !== taskId)
+  } catch (e: any) {
+    console.error('[ResumeView] 删除记录失败:', e)
+  }
+}
+
+function statusClass(status: string): string {
+  switch (status) {
+    case 'completed': return 'bg-green-100 text-green-700'
+    case 'not_viable': return 'bg-yellow-100 text-yellow-700'
+    case 'failed': return 'bg-red-100 text-red-700'
+    default: return 'bg-gray-100 text-gray-700'
+  }
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'completed': return '已完成'
+    case 'not_viable': return '匹配度低'
+    case 'failed': return '失败'
+    default: return status
+  }
+}
+
+function formatDate(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function formatElapsed(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+  const m = Math.floor(ms / 60000)
+  const s = Math.round((ms % 60000) / 1000)
+  return `${m}m${s}s`
+}
+
+onMounted(() => {
+  loadHistory()
+})
 
 onUnmounted(() => {
   stopPolling()

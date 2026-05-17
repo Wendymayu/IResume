@@ -30,6 +30,7 @@ logs/
 # Data (user-specific, not for version control)
 data/profile/
 data/resumes/
+data/history.db
 
 # OS
 .DS_Store

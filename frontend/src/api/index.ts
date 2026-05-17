@@ -19,4 +19,10 @@ export const getTaskStatus = (taskId: string) =>
 export const getResume = (resumeId: string) => api.get(`/resume/${resumeId}`)
 export const downloadResume = (resumeId: string) => `/api/resume/${resumeId}/download`
 
+// History
+export const getHistoryList = (limit = 20, offset = 0) =>
+  api.get('/resume/history/list', { params: { limit, offset } })
+export const deleteHistoryRecord = (taskId: string) =>
+  api.delete(`/resume/history/${taskId}`)
+
 export default api

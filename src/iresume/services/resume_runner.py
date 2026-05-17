@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,8 +14,10 @@ from iresume.agent.nodes import (
     resume_generator,
     skill_matcher,
 )
+from iresume.config import settings
 from iresume.models.task import TaskStatus
 from iresume.services.task_manager import task_manager
+from iresume.storage.history_repository import HistoryRepository
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,8 @@ async def run_resume_generation(
     template_name: str = "professional",
 ) -> None:
     logger.info(f"[runner] 开始后台执行 task={task_id}")
+    start_time = time.perf_counter()
+    history_repo = HistoryRepository(settings.history_db_path)
     try:
         await _update(task_id, TaskStatus.RUNNING, "正在初始化...", 0)
 
@@ -72,6 +77,8 @@ async def run_resume_generation(
         recommendation = gap_report.get("recommendation", "proceed")
         logger.info(f"[runner] 缺口分析建议: {recommendation}")
 
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+
         if recommendation == "not_viable":
             logger.info("[runner] not_viable，提前结束")
             await _update(
@@ -81,6 +88,14 @@ async def run_resume_generation(
                 100,
                 result={"gap_report": gap_report},
                 completed_at=datetime.now(timezone.utc),
+            )
+            history_repo.add_record(
+                task_id=task_id,
+                jd_text=jd_text,
+                status="not_viable",
+                template=template_name,
+                elapsed_ms=elapsed_ms,
+                gap_report=gap_report,
             )
             return
 
@@ -104,6 +119,25 @@ async def run_resume_generation(
         )
         logger.info(f"[runner] task={task_id} 完成, resume_id={resume_id}")
 
+        history_repo.add_record(
+            task_id=task_id,
+            jd_text=jd_text,
+            status="completed",
+            template=template_name,
+            elapsed_ms=elapsed_ms,
+            resume_id=resume_id,
+            gap_report=gap_report,
+        )
+
     except Exception as e:
         logger.exception(f"[runner] task={task_id} 异常: {type(e).__name__}: {e}")
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
         await _update(task_id, TaskStatus.FAILED, "生成失败", 0, error=str(e))
+        history_repo.add_record(
+            task_id=task_id,
+            jd_text=jd_text,
+            status="failed",
+            template=template_name,
+            elapsed_ms=elapsed_ms,
+            error=str(e),
+        )

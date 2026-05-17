@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     def resumes_dir(self) -> Path:
         return self.data_dir / "resumes"
 
+    @property
+    def history_db_path(self) -> Path:
+        return self.data_dir / "history.db"
+
     model_config = {"env_file": ".env", "env_prefix": "IRESUME_"}
 
 
